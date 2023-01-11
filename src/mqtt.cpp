@@ -106,6 +106,38 @@ int CMqtt::m_nConnectStatus = MQTT_NOT_CONNECT_STATUS;
       cout << "DEBUG: success subscribe(" << MQTTBRIDGE_TO_BROKER              \
            << "), return code " << rc << endl;                                 \
     }                                                                          \
+    if ((rc = MQTTAsync_subscribe(client, STOPCHARGE, QOS_TWO_LEVEL,           \
+                                  &opts)) != MQTTASYNC_SUCCESS) {              \
+      cout << "Error: Failed to start subscribe(" << STOPCHARGE                \
+           << "), return code " << rc << endl;                                 \
+    } else {                                                                   \
+      cout << "DEBUG: success subscribe(" << STOPCHARGE << "), return code "   \
+           << rc << endl;                                                      \
+    }                                                                          \
+    if ((rc = MQTTAsync_subscribe(client, NAV2TRIG, QOS_TWO_LEVEL, &opts)) !=  \
+        MQTTASYNC_SUCCESS) {                                                   \
+      cout << "Error: Failed to start subscribe(" << NAV2TRIG                  \
+           << "), return code " << rc << endl;                                 \
+    } else {                                                                   \
+      cout << "DEBUG: success subscribe(" << NAV2TRIG << "), return code "     \
+           << rc << endl;                                                      \
+    }                                                                          \
+    if ((rc = MQTTAsync_subscribe(client, NAV2PREEMPT, QOS_TWO_LEVEL,          \
+                                  &opts)) != MQTTASYNC_SUCCESS) {              \
+      cout << "Error: Failed to start subscribe(" << NAV2PREEMPT               \
+           << "), return code " << rc << endl;                                 \
+    } else {                                                                   \
+      cout << "DEBUG: success subscribe(" << NAV2PREEMPT << "), return code "  \
+           << rc << endl;                                                      \
+    }                                                                          \
+    if ((rc = MQTTAsync_subscribe(client, NAV2STOP, QOS_TWO_LEVEL, &opts)) !=  \
+        MQTTASYNC_SUCCESS) {                                                   \
+      cout << "Error: Failed to start subscribe(" << NAV2STOP                  \
+           << "), return code " << rc << endl;                                 \
+    } else {                                                                   \
+      cout << "DEBUG: success subscribe(" << NAV2STOP << "), return code "     \
+           << rc << endl;                                                      \
+    }                                                                          \
   }
 
 CMqtt m_pMqtt;

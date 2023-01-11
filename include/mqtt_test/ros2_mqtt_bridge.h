@@ -24,23 +24,31 @@ public:
   void startServer();
   void getBrokerMsg(std::pair<std::string, std::string> &topicMsg);
 
-  using ClientT = nav2_msgs::action::NavigateToPose;
-
-  using ActionClient = rclcpp_action::Client<ClientT>;
+  using Nav2ActionClientT = nav2_msgs::action::NavigateToPose;
+  using GoalHandleActionClient = rclcpp_action::Client<Nav2ActionClientT>;
 
   using ChargeBackAction = charge_interface::action::ChargeBack;
   using GoalHandleChargeBackAction = rclcpp_action::Client<ChargeBackAction>;
 
+  using ChargeBackGoalHandle =
+      rclcpp_action::ClientGoalHandle<charge_interface::action::ChargeBack>;
+
+  using NavigationGoalHandle =
+      rclcpp_action::ClientGoalHandle<Nav2ActionClientT>;
+  // tf2::Quaternion getOriFromYaw(float yaw);
+
 protected:
   void resultCallback(
-      const rclcpp_action::ClientGoalHandle<ClientT>::WrappedResult &result);
+      const rclcpp_action::ClientGoalHandle<Nav2ActionClientT>::WrappedResult
+          &result);
 
   /**
    * @brief Action client goal response callback
    * @param future Shared future to goalhandle
    */
   void goalResponseCallback(
-      std::shared_future<rclcpp_action::ClientGoalHandle<ClientT>::SharedPtr>
+      std::shared_future<
+          rclcpp_action::ClientGoalHandle<Nav2ActionClientT>::SharedPtr>
           future);
 
   void chargeResultCallback(
@@ -57,17 +65,22 @@ protected:
           future);
 
   // Our action server
-  ActionClient::SharedPtr nav_to_pose_client_;
-  GoalHandleChargeBackAction::SharedPtr charge_back;
-  rclcpp::Node::SharedPtr client_node_;
-  std::shared_future<rclcpp_action::ClientGoalHandle<ClientT>::SharedPtr>
-      future_goal_handle_;
+
   bool stop_on_failure_;
   ActionStatus current_goal_status_;
   int loop_rate_;
   std::vector<int> failed_ids_;
 
 private:
+  ChargeBackGoalHandle::SharedPtr back_charge_goal_handle;
+  std::shared_future<
+      rclcpp_action::ClientGoalHandle<Nav2ActionClientT>::SharedPtr>
+      future_nav2_goal_handle_;
+  GoalHandleActionClient::SharedPtr nav_to_pose_client_;
+  GoalHandleChargeBackAction::SharedPtr charge_back;
+  NavigationGoalHandle::SharedPtr navigation_goal_handle_;
+  rclcpp::Node::SharedPtr client_node_;
+
   // std::condition_variable m_conVar;
   // std::mutex m_mtx; // 互斥锁
   // std::shared_ptr<CMsgWork> rosMsgWork;

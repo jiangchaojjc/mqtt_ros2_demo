@@ -3,7 +3,7 @@
 
 //#include "mqtt_test/ros2_mqtt_bridge.h"
 #include <chrono>
-
+#include <ctime>
 #include <fstream>
 #include <memory>
 #include <streambuf>
@@ -41,6 +41,10 @@
 #include <mutex>
 #include <queue>
 
+#include "tf2_msgs/msg/tf_message.hpp"
+#include <tf2/LinearMath/Quaternion.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
+
 #include "rcsbot_interface/msg/error_pub.hpp"
 #include "rcsbot_interface/msg/io_pub.hpp"
 #include "rcsbot_interface/msg/rob_state_pub.hpp"
@@ -53,8 +57,14 @@
 #define ROS_TO_MQTTBRIDGE "Ros_To_MqttBridge"
 #define BROKER_TO_MQTTBRIDGE "Broker_To_MqttBridge"
 #define MQTTBRIDGE_TO_BROKER "MqttBridge_To_Broker"
-#define CHARGEBACK "chargeback"
 #define MQTTBRIDGE_TO_ROS "MqttBridge_To_Ros"
+
+// jc add topic
+#define CHARGEBACK "chargeback"
+#define STOPCHARGE "Stop_Charge"
+#define NAV2TRIG "Nav2_Trig"
+#define NAV2PREEMPT "Nav2_Preempt"
+#define NAV2STOP "Nav2_Stop"
 
 // mqtt qos
 #define QOS_ZERO_LEVEL 0 // 至多一次
@@ -62,10 +72,10 @@
 #define QOS_TWO_LEVEL 2  // 只有一次
 
 static std::map<std::string, int> topicParam = {{CHARGEBACK, 1},
-                                                {MQTTBRIDGE_TO_BROKER, 2},
-                                                {MQTTBRIDGE_TO_ROS, 3},
-                                                {BROKER_TO_MQTTBRIDGE, 4},
-                                                {ROS_TO_MQTTBRIDGE, 5}};
+                                                {STOPCHARGE, 2},
+                                                {NAV2TRIG, 3},
+                                                {NAV2PREEMPT, 4},
+                                                {NAV2STOP, 5}};
 
 class CMsgWork {
 public:
