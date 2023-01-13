@@ -65,17 +65,18 @@
 #define NAV2TRIG "Nav2_Trig"
 #define NAV2PREEMPT "Nav2_Preempt"
 #define NAV2STOP "Nav2_Stop"
+#define FOLLOWWAYPOINTSTRIG "FollowWaypointsTrig"
+#define FOLLOWWAYPOINTSSTOP "FollowWaypointsStop"
 
 // mqtt qos
 #define QOS_ZERO_LEVEL 0 // 至多一次
 #define QOS_ONE_LEVEL 1  // 至少一次
 #define QOS_TWO_LEVEL 2  // 只有一次
 
-static std::map<std::string, int> topicParam = {{CHARGEBACK, 1},
-                                                {STOPCHARGE, 2},
-                                                {NAV2TRIG, 3},
-                                                {NAV2PREEMPT, 4},
-                                                {NAV2STOP, 5}};
+static std::map<std::string, int> topicParam = {
+    {CHARGEBACK, 1},         {STOPCHARGE, 2}, {NAV2TRIG, 3},
+    {NAV2PREEMPT, 4},        {NAV2STOP, 5},   {FOLLOWWAYPOINTSTRIG, 6},
+    {FOLLOWWAYPOINTSSTOP, 7}};
 
 class CMsgWork {
 public:

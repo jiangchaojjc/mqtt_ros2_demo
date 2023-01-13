@@ -42,6 +42,7 @@ void CMsgWork::notifyMsg(std::string &ptopic, std::string &pRecvMsg) {
   RecvMsg.first = ptopic;
   RecvMsg.second = pRecvMsg;
   m_recvMsgQueue.push(RecvMsg);
+
   m_conVar.notify_one(); // 这是在唤醒阻塞的线程
 }
 

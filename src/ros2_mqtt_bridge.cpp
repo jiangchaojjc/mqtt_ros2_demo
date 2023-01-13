@@ -35,13 +35,18 @@ Ros2MqttBridge::Ros2MqttBridge()
   client_node_ = std::make_shared<rclcpp::Node>(
       "_", "", rclcpp::NodeOptions().arguments(new_args));
 
-  nav_to_pose_client_ = rclcpp_action::create_client<
-      Nav2ActionClientT>( // jc:创建NavigateToPose的client
+  // jc:创建NavigateToPose的client
+  nav_to_pose_client_ = rclcpp_action::create_client<Nav2ActionInterface>(
       client_node_, "navigate_to_pose");
 
-  charge_back = rclcpp_action::create_client<ChargeBackAction>(
-      client_node_,
-      "chargeback"); // jc:创建ChargeBackAction的client
+  // jc:创建ChargeBackAction的client
+  charge_back_client = rclcpp_action::create_client<ChargeBackActionInterface>(
+      client_node_, "chargeback");
+
+  // jc:创建FollowWaypoints的client
+  followWaypoints_client_ =
+      rclcpp_action::create_client<FollowWaypointsInterface>(client_node_,
+                                                             "FollowWaypoints");
   RCLCPP_INFO(this->get_logger(), "Ros2MqttBridge construct");
 
   // publishMqttMsg();
@@ -50,67 +55,6 @@ Ros2MqttBridge::Ros2MqttBridge()
 }
 
 Ros2MqttBridge::~Ros2MqttBridge() {}
-
-// 订阅到ros话题的回调函数
-// void Ros2MqttBridge::publishMqttMsg()
-// {
-
-//   Nav2ActionClientT::Goal client_goal; //
-//   jc:这个主要是发一个NavigateToPose_Goal_，包含posestamp
-//   // client_goal.pose = goal->poses[goal_index];
-
-//   client_goal.pose.header.frame_id = "map";
-//   client_goal.pose.header.stamp = rclcpp::Clock().now();
-//   client_goal.pose.pose.position.x = 0.48;
-//   client_goal.pose.pose.position.y = 1.74;
-//   client_goal.pose.pose.orientation.z = -0.707;
-//   client_goal.pose.pose.orientation.w = 0.707;
-//   client_goal.pose.pose.orientation.x = 0.0;
-//   client_goal.pose.pose.orientation.y = 0.0;
-
-//   // 这里先将ros的自定义消息转换为json格式消息
-//   Json::Value root;
-//   Json::Value Rtime;
-//   Json::Value pose;
-//   // 将stamp时间转换为字符串
-//   root["frame_id"] = "map";
-//   Rtime = rclcpp::Clock().now();
-//   root["stamp"] = Rtime;
-//   pose[0] = 0.48;
-//   pose[1] = 1.74;
-//   pose[2] = -0.707;
-//   pose[3] = 0.707;
-//   pose[4] = 0.0;
-//   pose[5] = 0.0;
-//   root["RobotPose"] = pose;
-//   // json序列化为std::string类型数据，发送到broker
-//   Json::StreamWriterBuilder builder;
-//   std::string sJsonData = Json::writeString(builder, root);
-//   m_pMqtt.PublishMsg(MQTTBRIDGE_TO_BROKER, QOS_TWO_LEVEL, sJsonData);
-//   RCLCPP_INFO(get_logger(), "PublishMsg .......");
-
-//   // // 这里先将ros的自定义消息转换为json格式消息
-//   // Json::Value root;
-//   // Json::Value time;
-//   // Json::Value pose;
-//   // // 将stamp时间转换为字符串
-//   // time[0] = msg.header.stamp.sec;
-//   // time[1] = msg.header.stamp.nsec;
-//   // root["myHeader"] = time;
-//   // root["mystring"] = msg.sMsg;
-//   // root["myint"] = msg.nMsg;
-//   // root["mybool"] = msg.bMsg;
-//   // pose[0] = msg.gmRobotPose.x;
-//   // pose[1] = msg.gmRobotPose.y;
-//   // pose[2] = msg.gmRobotPose.theta;
-//   // root["RobotPose"] = pose;
-//   // // json序列化为std::string类型数据，发送到broker
-//   // Json::StreamWriterBuilder builder;
-//   // std::string sJsonData = Json::writeString(builder, root);
-//   // m_pMqtt.PublishMsg(MQTTBRIDGE_TO_BROKER, QOS_TWO_LEVEL, sJsonData);
-
-//   // m_pMqtt.PublishMsg(MQTTBRIDGE_TO_BROKER,QOS_TWO_LEVEL,msg.data);
-// }
 
 void Ros2MqttBridge::getBrokerMsg(
     std::pair<std::string, std::string> &topicMsg) {
@@ -128,28 +72,28 @@ void Ros2MqttBridge::getBrokerMsg(
     cout << "格式不对" << endl;
     return;
   }
-  std::chrono::milliseconds server_timeout_{20};
+  std::chrono::milliseconds server_timeout_{30};
   rclcpp::WallRate r(loop_rate_);
   int caseKey = topicParam[topicMsg.first];
   switch (caseKey) {
 
   case 1: {
     RCLCPP_INFO(this->get_logger(), "charge_back trig...");
-    auto back_trig = ChargeBackAction::Goal();
+    auto back_trig = ChargeBackActionInterface::Goal();
     back_trig.back_charge = root["chargeTrig"].asBool();
-    if (!charge_back->wait_for_action_server()) {
+    if (!charge_back_client->wait_for_action_server()) {
       RCLCPP_ERROR(this->get_logger(),
                    "Action server not available after waiting");
       rclcpp::shutdown();
     }
 
-    // auto back_trig = ChargeBackAction::Goal();
+    // auto back_trig = ChargeBackActionInterface::Goal();
     // back_trig.back_charge = true;
     if (back_trig.back_charge) {
       RCLCPP_INFO(this->get_logger(), "send_back_goal_options");
 
       auto charge_back_goal_options =
-          rclcpp_action::Client<ChargeBackAction>::SendGoalOptions();
+          rclcpp_action::Client<ChargeBackActionInterface>::SendGoalOptions();
 
       charge_back_goal_options.goal_response_callback = std::bind(
           &Ros2MqttBridge::chargeResponseCallback, this, std::placeholders::_1);
@@ -160,8 +104,8 @@ void Ros2MqttBridge::getBrokerMsg(
       charge_back_goal_options.result_callback = std::bind(
           &Ros2MqttBridge::chargeResultCallback, this, std::placeholders::_1);
 
-      auto future_back_charge_goal_handle =
-          charge_back->async_send_goal(back_trig, charge_back_goal_options);
+      future_back_charge_goal_handle = charge_back_client->async_send_goal(
+          back_trig, charge_back_goal_options);
       rclcpp::spin_until_future_complete(
           client_node_, future_back_charge_goal_handle, server_timeout_);
       back_charge_goal_handle = future_back_charge_goal_handle.get();
@@ -175,20 +119,20 @@ void Ros2MqttBridge::getBrokerMsg(
     auto back_trig =
         root["chargeStop"]
             .asBool(); // mqtt发送过来取消的消息就直接取消，不需要再发送action的消息类型
-    if (!charge_back->wait_for_action_server()) {
+    if (!charge_back_client->wait_for_action_server()) {
       RCLCPP_ERROR(this->get_logger(),
                    "Action server not available after waiting");
       rclcpp::shutdown();
     }
 
-    // auto back_trig = ChargeBackAction::Goal();
+    // auto back_trig = ChargeBackActionInterface::Goal();
     // back_trig.back_charge = true;
 
     if (back_trig) {
       RCLCPP_INFO(this->get_logger(), "send_back_goal_stop");
 
       auto cancel_charge_back =
-          charge_back->async_cancel_goal(back_charge_goal_handle);
+          charge_back_client->async_cancel_goal(back_charge_goal_handle);
       if (rclcpp::spin_until_future_complete(client_node_, cancel_charge_back,
                                              server_timeout_) !=
           rclcpp::FutureReturnCode::SUCCESS) {
@@ -205,9 +149,9 @@ void Ros2MqttBridge::getBrokerMsg(
 
     RCLCPP_INFO(this->get_logger(), "navigator to a goal trig...");
     // mqtt发送过来取消的消息就直接取消，不需要再发送action的消息类型
-    auto navi_trig = root["naviStart"].asBool();
-    if (!nav_to_pose_client_
-             ->wait_for_action_server()) { //再发一次任务就会penging之前的任务，执行现在的任务，这些都在server端执行
+    bool navi_trig = root["naviStart"].asBool();
+    //再发一次任务就会penging之前的任务，执行现在的任务，这些都在server端执行
+    if (!nav_to_pose_client_->wait_for_action_server(std::chrono::seconds(5))) {
       RCLCPP_ERROR(this->get_logger(),
                    "Action server not available after waiting");
       rclcpp::shutdown();
@@ -215,7 +159,7 @@ void Ros2MqttBridge::getBrokerMsg(
 
     if (navi_trig) {
       using namespace std::placeholders;
-      Nav2ActionClientT::Goal
+      Nav2ActionInterface::Goal
           client_goal; // jc:这个主要是发一个NavigateToPose_Goal_，包含posestamp
       RCLCPP_INFO(get_logger(), "NavigateToPose_Goal_ .......");
       // client_goal.pose.header.frame_id = root["frame_id"].asString();
@@ -251,13 +195,13 @@ void Ros2MqttBridge::getBrokerMsg(
       RCLCPP_INFO(get_logger(), "jcjcjcjc get the goal pose. x %f y %f ",
                   client_goal.pose.pose.position.x,
                   client_goal.pose.pose.position.y);
-      auto send_goal_options = rclcpp_action::Client<Nav2ActionClientT>::
+      auto send_goal_options = rclcpp_action::Client<Nav2ActionInterface>::
           SendGoalOptions(); // jc:返回结构体SendGoalOptions，包含3个函数指针
       send_goal_options.result_callback = std::bind(
-          &Ros2MqttBridge::resultCallback, this, std::placeholders::_1);
+          &Ros2MqttBridge::nav2resultCallback, this, std::placeholders::_1);
       send_goal_options
           .goal_response_callback = // jc:相当于激活之后执行的回调函数
-          std::bind(&Ros2MqttBridge::goalResponseCallback, this,
+          std::bind(&Ros2MqttBridge::nav2goalResponseCallback, this,
                     std::placeholders::_1);
       future_nav2_goal_handle_ = nav_to_pose_client_->async_send_goal(
           client_goal, send_goal_options); // jc:发送请求，执行三个回调函数
@@ -270,6 +214,7 @@ void Ros2MqttBridge::getBrokerMsg(
       }
       // Get the goal handle and save so that we can check on completion in the
       // timer callback
+      RCLCPP_INFO(this->get_logger(), "navi2 spin_until_future_complete");
       navigation_goal_handle_ = future_nav2_goal_handle_.get();
       if (!navigation_goal_handle_) {
         RCLCPP_ERROR(client_node_->get_logger(), "Goal was rejected by server");
@@ -282,7 +227,7 @@ void Ros2MqttBridge::getBrokerMsg(
 
   case 4: {
     RCLCPP_INFO(this->get_logger(), "new navigator to a goal trig...");
-    auto navi_trig =
+    bool navi_trig =
         root["newNaviStart"]
             .asBool(); // mqtt发送过来取消的消息就直接取消，不需要再发送action的消息类型
     // if (!nav_to_pose_client_
@@ -295,7 +240,7 @@ void Ros2MqttBridge::getBrokerMsg(
 
     if (navi_trig) {
       using namespace std::placeholders;
-      Nav2ActionClientT::Goal
+      Nav2ActionInterface::Goal
           client_goal; // jc:这个主要是发一个NavigateToPose_Goal_，包含posestamp
       RCLCPP_INFO(get_logger(), "preempt NavigateToPose_Goal_ .......");
       // client_goal.pose.header.frame_id = root["frame_id"].asString();
@@ -332,13 +277,13 @@ void Ros2MqttBridge::getBrokerMsg(
       RCLCPP_INFO(get_logger(), "jcjcjcjc get new goal pose. x %f y %f ",
                   client_goal.pose.pose.position.x,
                   client_goal.pose.pose.position.y);
-      auto send_goal_options = rclcpp_action::Client<Nav2ActionClientT>::
+      auto send_goal_options = rclcpp_action::Client<Nav2ActionInterface>::
           SendGoalOptions(); // jc:返回结构体SendGoalOptions，包含3个函数指针
       send_goal_options.result_callback = std::bind(
-          &Ros2MqttBridge::resultCallback, this, std::placeholders::_1);
+          &Ros2MqttBridge::nav2resultCallback, this, std::placeholders::_1);
       send_goal_options
           .goal_response_callback = // jc:相当于激活之后执行的回调函数
-          std::bind(&Ros2MqttBridge::goalResponseCallback, this,
+          std::bind(&Ros2MqttBridge::nav2goalResponseCallback, this,
                     std::placeholders::_1);
       future_nav2_goal_handle_ = nav_to_pose_client_->async_send_goal(
           client_goal, send_goal_options); // jc:发送请求，执行三个回调函数
@@ -349,6 +294,9 @@ void Ros2MqttBridge::getBrokerMsg(
         RCLCPP_ERROR(client_node_->get_logger(), "Send a new goal call failed");
         return;
       }
+
+      RCLCPP_INFO(this->get_logger(),
+                  "navi2 preempt spin_until_future_complete");
       // Get the goal handle and save so that we can check on completion in the
       // timer callback
       navigation_goal_handle_ = future_nav2_goal_handle_.get();
@@ -363,16 +311,16 @@ void Ros2MqttBridge::getBrokerMsg(
   case 5: {
 
     RCLCPP_INFO(this->get_logger(), "navi2 stop trig...");
-    auto navi_stop_trig =
+    bool navi_stop_trig =
         root["nav2_Goal_Stop"]
             .asBool(); // mqtt发送过来取消的消息就直接取消，不需要再发送action的消息类型
-    if (!nav_to_pose_client_->wait_for_action_server()) {
+    if (!nav_to_pose_client_->wait_for_action_server(std::chrono::seconds(5))) {
       RCLCPP_ERROR(this->get_logger(),
                    "Action server not available after waiting");
       rclcpp::shutdown();
     }
 
-    // auto back_trig = ChargeBackAction::Goal();
+    // auto back_trig = ChargeBackActionInterface::Goal();
     // back_trig.back_charge = true;
 
     if (navi_stop_trig) {
@@ -391,6 +339,128 @@ void Ros2MqttBridge::getBrokerMsg(
     break;
   }
 
+  case 6: {
+    RCLCPP_INFO(this->get_logger(), "followWayPoints trig...");
+    circleFollowTrig = true;
+    // mqtt发送过来取消的消息就直接取消，不需要再发送action的消息类型
+    // bool followWaypoints_trig = root["FWPointsStart"].asBool();
+
+    using namespace std::placeholders;
+    geometry_msgs::msg::PoseStamped client_goal;
+    RCLCPP_INFO(get_logger(), "followWayPoints start .......");
+
+    int num = root["cruise_points"].size();
+    std::vector<geometry_msgs::msg::PoseStamped> poses;
+    for (int i = 0; i < num; i++) {
+      client_goal.header.frame_id = "map";
+      auto rtime = std::chrono::system_clock::now().time_since_epoch().count();
+      int sec = rtime / lround(floor((pow(10, 9))));
+      int nanasec = rtime % lround(floor((pow(10, 9))));
+      auto &&ros_time = rclcpp::Time(sec, nanasec);
+      client_goal.header.stamp = ros_time;
+      client_goal.pose.position.x = root["cruise_points"][i]["x"].asFloat();
+
+      client_goal.pose.position.y = root["cruise_points"][i]["y"].asFloat();
+      client_goal.pose.position.z = root["cruise_points"][i]["z"].asFloat();
+
+      auto yaw = root["cruise_points"][i]["theta"].asFloat();
+      tf2::Quaternion orientation;
+      orientation.setRPY(0.0, 0.0, yaw); // 单位是弧度
+      client_goal.pose.orientation.z = orientation.getZ();
+      client_goal.pose.orientation.w = orientation.getW();
+      client_goal.pose.orientation.x = orientation.getX();
+      client_goal.pose.orientation.y = orientation.getY();
+      RCLCPP_INFO(get_logger(), "jcjcjcjc get new goal pose. x %f y %f ",
+                  client_goal.pose.position.x, client_goal.pose.position.y);
+      poses.push_back(client_goal);
+    }
+    waypoint_follower_goal_.poses = poses;
+
+    RCLCPP_INFO(client_node_->get_logger(), "Sending a path of %zu waypoints:",
+                waypoint_follower_goal_.poses.size());
+
+    // // Send the goal poses
+    // if (!followWaypoints_client_->wait_for_action_server(
+    //         std::chrono::seconds(5))) {
+    //   //再发一次任务就会penging之前的任务，执行现在的任务，这些都在server端执行
+    //   RCLCPP_ERROR(this->get_logger(),
+    //                "Action server not available after waiting");
+    //   rclcpp::shutdown();
+    // }
+
+    // // Enable result awareness by providing an empty lambda function
+    // auto send_goal_options =
+    //     rclcpp_action::Client<FollowWaypointsInterface>::SendGoalOptions();
+
+    // // send_goal_options.result_callback = [](auto) {};
+
+    // send_goal_options.result_callback =
+    //     std::bind(&Ros2MqttBridge::followWaypointsResultCallback, this,
+    //               std::placeholders::_1);
+    // send_goal_options
+    //     .goal_response_callback = // jc:相当于激活之后执行的回调函数
+    //     std::bind(&Ros2MqttBridge::followWaypointsGoalResponseCallback, this,
+    //               std::placeholders::_1);
+
+    // auto future_goal_handle = followWaypoints_client_->async_send_goal(
+    //     waypoint_follower_goal_, send_goal_options);
+
+    // if (rclcpp::spin_until_future_complete(client_node_, future_goal_handle,
+    //                                        server_timeout_) !=
+    //     rclcpp::FutureReturnCode::SUCCESS) {
+    //   RCLCPP_ERROR(client_node_->get_logger(), "Send a new goal call
+    //   failed"); return;
+    // }
+
+    // RCLCPP_INFO(client_node_->get_logger(),
+    //             "followwaypoints spin_until_future_complete");
+    // // Get the goal handle and save so that we can check on completion in
+    // // the timer callback
+    // followWaypoints_goal_handle_ = future_goal_handle.get();
+    // if (!followWaypoints_goal_handle_) {
+    //   RCLCPP_ERROR(client_node_->get_logger(), "Goal was rejected by
+    //   server"); return;
+    // }
+    // 开辟子线程循环执行Followwaypoints
+    std::thread circleFollowWayPoints(
+        &Ros2MqttBridge::gotoCircleFollowWaypoints, this);
+    circleFollowWayPoints.detach();
+    break;
+  }
+
+  case 7: {
+
+    RCLCPP_INFO(this->get_logger(), "followWaypoints stop start...");
+    bool followwaypoints_stop_trig =
+        root["FollowWaypoints_Stop"]
+            .asBool(); // mqtt发送过来取消的消息就直接取消，不需要再发送action的消息类型
+    if (!followWaypoints_client_->wait_for_action_server(
+            std::chrono::seconds(5))) {
+      RCLCPP_ERROR(this->get_logger(),
+                   "Action server not available after waiting");
+      rclcpp::shutdown();
+    }
+
+    // auto back_trig = ChargeBackActionInterface::Goal();
+
+    // back_trig.back_charge = true;
+
+    if (followwaypoints_stop_trig) {
+      RCLCPP_INFO(this->get_logger(), "followwaypoints_stop_trig...");
+
+      auto cancel_followwaypoints = followWaypoints_client_->async_cancel_goal(
+          followWaypoints_goal_handle_);
+      if (rclcpp::spin_until_future_complete(
+              client_node_, cancel_followwaypoints, server_timeout_) !=
+          rclcpp::FutureReturnCode::SUCCESS) {
+        RCLCPP_ERROR(client_node_->get_logger(),
+                     "Failed to cancel back charge");
+        return;
+      }
+    }
+    break;
+  }
+
   default: {
     break;
   }
@@ -400,13 +470,127 @@ void Ros2MqttBridge::getBrokerMsg(
   // r.sleep();
 }
 
-void Ros2MqttBridge::resultCallback(
-    const rclcpp_action::ClientGoalHandle<Nav2ActionClientT>::WrappedResult
+void Ros2MqttBridge::gotoCircleFollowWaypoints() {
+  std::chrono::milliseconds server_timeout_{30};
+  while (rclcpp::ok()) {
+
+    if (circleFollowTrig) {
+      circleFollowTrig = false;
+      RCLCPP_INFO(this->get_logger(), "followWayPoints circle...");
+      if (!followWaypoints_client_->wait_for_action_server(
+              std::chrono::seconds(5))) {
+        //再发一次任务就会penging之前的任务，执行现在的任务，这些都在server端执行
+        RCLCPP_ERROR(this->get_logger(),
+                     "Action server not available after waiting");
+        rclcpp::shutdown();
+      }
+
+      // Enable result awareness by providing an empty lambda function
+      auto send_goal_options =
+          rclcpp_action::Client<FollowWaypointsInterface>::SendGoalOptions();
+
+      // send_goal_options.result_callback =
+      //     std::bind(&Ros2MqttBridge::followWaypointsResultCallback, this,
+      //               std::placeholders::_1);
+      // send_goal_options.feedback_callback =
+      //     std::bind(&Ros2MqttBridge::followWaypointsFeedbackCallback, this,
+      //               std::placeholders::_1, std::placeholders::_2);
+      // send_goal_options.goal_response_callback = // jc:执行的回调函数
+      //     std::bind(&Ros2MqttBridge::followWaypointsGoalResponseCallback,
+      //     this,
+      //               std::placeholders::_1);
+
+      future_follow_goal_handle = followWaypoints_client_->async_send_goal(
+          waypoint_follower_goal_, send_goal_options);
+
+      if (rclcpp::spin_until_future_complete(
+              client_node_, future_follow_goal_handle, server_timeout_) !=
+          rclcpp::FutureReturnCode::SUCCESS) {
+        RCLCPP_ERROR(client_node_->get_logger(), "Send a new goal call failed");
+        return;
+      }
+
+      followWaypoints_goal_handle_ = future_follow_goal_handle.get();
+      if (!followWaypoints_goal_handle_) {
+        RCLCPP_ERROR(client_node_->get_logger(), "Goal was rejected by server");
+        return;
+      }
+      RCLCPP_INFO(client_node_->get_logger(),
+                  "followwaypoints Wait for the result");
+
+      auto future_result = followWaypoints_client_->async_get_result(
+          followWaypoints_goal_handle_);
+
+      // Wait for the result阻塞在这个地方直到获取结果
+      rclcpp::spin_until_future_complete(client_node_, future_result);
+
+      // The final result
+      rclcpp_action::ClientGoalHandle<FollowWaypointsInterface>::WrappedResult
+          result = future_result.get();
+      if (result.code == rclcpp_action::ResultCode::SUCCEEDED) {
+        circleFollowTrig = true;
+      } else if (result.code == rclcpp_action::ResultCode::CANCELED) {
+        RCLCPP_INFO(client_node_->get_logger(),
+                    "rclcpp_action::ResultCode::CANCELED");
+        return;
+      }
+
+      RCLCPP_INFO(client_node_->get_logger(),
+                  "followwaypoints spin_until_future_complete");
+      // Get the goal handle and save so that we can check on completion in
+      // the timer callback
+      // followWaypoints_goal_handle_ = future_follow_goal_handle.get();
+      // if (!followWaypoints_goal_handle_) {
+      //   RCLCPP_ERROR(client_node_->get_logger(), "Goal was rejected by
+      //   server"); return;
+      // }
+    }
+  }
+}
+
+void Ros2MqttBridge::nav2resultCallback(
+    const rclcpp_action::ClientGoalHandle<Nav2ActionInterface>::WrappedResult
         &result) {
-  RCLCPP_INFO(get_logger(), "resultCallback");
+  RCLCPP_INFO(get_logger(), "followWaypointsresultCallback");
+  switch (result.code) {
+  case rclcpp_action::ResultCode::SUCCEEDED:
+    RCLCPP_INFO(this->get_logger(), "Goal was SUCCEEDED");
+    break;
+  case rclcpp_action::ResultCode::ABORTED:
+    RCLCPP_ERROR(this->get_logger(), "Goal was aborted");
+    return;
+  case rclcpp_action::ResultCode::CANCELED:
+    RCLCPP_ERROR(this->get_logger(), "Goal was canceled");
+    return;
+  default:
+    RCLCPP_ERROR(this->get_logger(), "Unknown result code");
+    return;
+  }
+}
+
+void Ros2MqttBridge::nav2goalResponseCallback(
+    std::shared_future<
+        rclcpp_action::ClientGoalHandle<Nav2ActionInterface>::SharedPtr>
+        future) {
+  RCLCPP_INFO(get_logger(), "goalResponseCallback");
+  auto goal_handle = future.get();
+  if (!goal_handle) {
+    RCLCPP_ERROR(
+        get_logger(),
+        "navigate_to_pose action client failed to send goal to server.");
+    current_goal_status_ = ActionStatus::FAILED;
+  }
+}
+
+void Ros2MqttBridge::followWaypointsResultCallback(
+    const rclcpp_action::ClientGoalHandle<
+        FollowWaypointsInterface>::WrappedResult &result) {
+  RCLCPP_INFO(get_logger(), "followWaypointsresultCallback");
   switch (result.code) {
   case rclcpp_action::ResultCode::SUCCEEDED:
     current_goal_status_ = ActionStatus::SUCCEEDED;
+    RCLCPP_INFO(this->get_logger(), "circleFollow = true");
+    // circleFollow = true;
     return;
   case rclcpp_action::ResultCode::ABORTED:
     current_goal_status_ = ActionStatus::FAILED;
@@ -420,11 +604,23 @@ void Ros2MqttBridge::resultCallback(
   }
 }
 
-void Ros2MqttBridge::goalResponseCallback(
+void Ros2MqttBridge::followWaypointsFeedbackCallback(
+    FollowWaypointsGoalHandle::SharedPtr,
+    const std::shared_ptr<const FollowWaypointsInterface::Feedback> feedback) {
+  // std::stringstream ss;
+  // ss << "feedback_callback received: ";
+  RCLCPP_INFO(get_logger(), "followWaypoints feedback_callback received");
+  // ss << feedback->current_waypoint << " ";
+
+  RCLCPP_INFO(this->get_logger(), "followWaypoints %i",
+              feedback->current_waypoint);
+}
+
+void Ros2MqttBridge::followWaypointsGoalResponseCallback(
     std::shared_future<
-        rclcpp_action::ClientGoalHandle<Nav2ActionClientT>::SharedPtr>
+        rclcpp_action::ClientGoalHandle<FollowWaypointsInterface>::SharedPtr>
         future) {
-  RCLCPP_INFO(get_logger(), "goalResponseCallback");
+  RCLCPP_INFO(get_logger(), "followWaypointsgoalResponseCallback");
   auto goal_handle = future.get();
   if (!goal_handle) {
     RCLCPP_ERROR(
@@ -436,7 +632,7 @@ void Ros2MqttBridge::goalResponseCallback(
 
 void Ros2MqttBridge::chargeResponseCallback(
     std::shared_future<
-        rclcpp_action::ClientGoalHandle<ChargeBackAction>::SharedPtr>
+        rclcpp_action::ClientGoalHandle<ChargeBackActionInterface>::SharedPtr>
         future) {
   auto goal_handle = future.get();
   if (!goal_handle) {
@@ -448,10 +644,11 @@ void Ros2MqttBridge::chargeResponseCallback(
 }
 
 void Ros2MqttBridge::chargeResultCallback(
-    const rclcpp_action::ClientGoalHandle<ChargeBackAction>::WrappedResult
-        &result) {
+    const rclcpp_action::ClientGoalHandle<
+        ChargeBackActionInterface>::WrappedResult &result) {
   switch (result.code) {
   case rclcpp_action::ResultCode::SUCCEEDED:
+    RCLCPP_INFO(this->get_logger(), "Goal was SUCCEEDED");
     break;
   case rclcpp_action::ResultCode::ABORTED:
     RCLCPP_ERROR(this->get_logger(), "Goal was aborted");
@@ -485,7 +682,8 @@ void Ros2MqttBridge::startServer() {
       sData = g_cMsgWork.m_recvMsgQueue.front();
       g_cMsgWork.m_recvMsgQueue.pop();
     }
-
+    RCLCPP_INFO(get_logger(), "ptopic %s ", sData.first.c_str());
+    RCLCPP_INFO(get_logger(), "pRecvMsg %s ", sData.second.c_str());
     if (!sData.first.empty() && !sData.second.empty()) {
       // 业务处理函数
       RCLCPP_INFO(get_logger(), "mqtt info callback");

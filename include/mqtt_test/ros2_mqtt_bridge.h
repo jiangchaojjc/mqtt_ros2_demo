@@ -24,36 +24,61 @@ public:
   void startServer();
   void getBrokerMsg(std::pair<std::string, std::string> &topicMsg);
 
-  using Nav2ActionClientT = nav2_msgs::action::NavigateToPose;
-  using GoalHandleActionClient = rclcpp_action::Client<Nav2ActionClientT>;
+  using FollowWaypointsInterface = nav2_msgs::action::FollowWaypoints;
+  using Nav2ActionInterface = nav2_msgs::action::NavigateToPose;
+  using ChargeBackActionInterface = charge_interface::action::ChargeBack;
 
-  using ChargeBackAction = charge_interface::action::ChargeBack;
-  using GoalHandleChargeBackAction = rclcpp_action::Client<ChargeBackAction>;
+  using GoalHandleFollowWaypointsClient =
+      rclcpp_action::Client<FollowWaypointsInterface>;
+  using GoalHandleActionClient = rclcpp_action::Client<Nav2ActionInterface>;
+  using GoalHandleChargeBackAction =
+      rclcpp_action::Client<ChargeBackActionInterface>;
+
+  using FollowWaypointsGoalHandle =
+      rclcpp_action::ClientGoalHandle<FollowWaypointsInterface>;
 
   using ChargeBackGoalHandle =
       rclcpp_action::ClientGoalHandle<charge_interface::action::ChargeBack>;
 
   using NavigationGoalHandle =
-      rclcpp_action::ClientGoalHandle<Nav2ActionClientT>;
+      rclcpp_action::ClientGoalHandle<Nav2ActionInterface>;
+
   // tf2::Quaternion getOriFromYaw(float yaw);
 
 protected:
-  void resultCallback(
-      const rclcpp_action::ClientGoalHandle<Nav2ActionClientT>::WrappedResult
+  void nav2resultCallback(
+      const rclcpp_action::ClientGoalHandle<Nav2ActionInterface>::WrappedResult
           &result);
 
   /**
    * @brief Action client goal response callback
    * @param future Shared future to goalhandle
    */
-  void goalResponseCallback(
+  void nav2goalResponseCallback(
       std::shared_future<
-          rclcpp_action::ClientGoalHandle<Nav2ActionClientT>::SharedPtr>
+          rclcpp_action::ClientGoalHandle<Nav2ActionInterface>::SharedPtr>
           future);
 
-  void chargeResultCallback(
-      const rclcpp_action::ClientGoalHandle<ChargeBackAction>::WrappedResult
-          &result);
+  void followWaypointsResultCallback(
+      const rclcpp_action::ClientGoalHandle<
+          FollowWaypointsInterface>::WrappedResult &result);
+
+  /**
+   * @brief Action client goal response callback
+   * @param future Shared future to goalhandle
+   */
+
+  void followWaypointsFeedbackCallback(
+      FollowWaypointsGoalHandle::SharedPtr,
+      const std::shared_ptr<const FollowWaypointsInterface::Feedback> feedback);
+
+  void followWaypointsGoalResponseCallback(
+      std::shared_future<
+          rclcpp_action::ClientGoalHandle<FollowWaypointsInterface>::SharedPtr>
+          future);
+
+  void chargeResultCallback(const rclcpp_action::ClientGoalHandle<
+                            ChargeBackActionInterface>::WrappedResult &result);
 
   /**
    * @brief Action client goal response callback
@@ -61,24 +86,44 @@ protected:
    */
   void chargeResponseCallback(
       std::shared_future<
-          rclcpp_action::ClientGoalHandle<ChargeBackAction>::SharedPtr>
+          rclcpp_action::ClientGoalHandle<ChargeBackActionInterface>::SharedPtr>
           future);
 
-  // Our action server
+  // FOLLOWWAYPOINTS CIRCLE
+  void gotoCircleFollowWaypoints();
 
   bool stop_on_failure_;
   ActionStatus current_goal_status_;
   int loop_rate_;
   std::vector<int> failed_ids_;
+  bool circleFollowTrig;
 
 private:
+  // FollowWaypoints目标点
+  nav2_msgs::action::FollowWaypoints::Goal waypoint_follower_goal_;
+  //为了取消任务
   ChargeBackGoalHandle::SharedPtr back_charge_goal_handle;
-  std::shared_future<
-      rclcpp_action::ClientGoalHandle<Nav2ActionClientT>::SharedPtr>
-      future_nav2_goal_handle_;
-  GoalHandleActionClient::SharedPtr nav_to_pose_client_;
-  GoalHandleChargeBackAction::SharedPtr charge_back;
   NavigationGoalHandle::SharedPtr navigation_goal_handle_;
+  FollowWaypointsGoalHandle::SharedPtr followWaypoints_goal_handle_;
+  // std::shared_future<
+  //     rclcpp_action::ClientGoalHandle<FollowWaypointsInterface>::SharedPtr>
+  //     future_nav2_goal_handle_;
+  //为了创建服务
+  GoalHandleActionClient::SharedPtr nav_to_pose_client_;
+  GoalHandleChargeBackAction::SharedPtr charge_back_client;
+  GoalHandleFollowWaypointsClient::SharedPtr followWaypoints_client_;
+
+  std::shared_future<
+      std::shared_ptr<rclcpp_action::ClientGoalHandle<Nav2ActionInterface>>>
+      future_nav2_goal_handle_;
+  std::shared_future<std::shared_ptr<
+      rclcpp_action::ClientGoalHandle<FollowWaypointsInterface>>>
+      future_follow_goal_handle;
+  std::shared_future<std::shared_ptr<
+      rclcpp_action::ClientGoalHandle<ChargeBackActionInterface>>>
+      future_back_charge_goal_handle;
+
+  //启动的节点
   rclcpp::Node::SharedPtr client_node_;
 
   // std::condition_variable m_conVar;
