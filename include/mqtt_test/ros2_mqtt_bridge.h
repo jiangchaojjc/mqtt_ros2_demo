@@ -20,7 +20,8 @@ class Ros2MqttBridge : public nav2_util::LifecycleNode {
 public:
   Ros2MqttBridge();
   ~Ros2MqttBridge();
-
+  std::promise<void> exitSignal;
+  bool circleReturn;
   void startServer();
   void getBrokerMsg(std::pair<std::string, std::string> &topicMsg);
 
@@ -92,6 +93,8 @@ protected:
   // FOLLOWWAYPOINTS CIRCLE
   void gotoCircleFollowWaypoints();
 
+  void gotoCircleGoals(std::vector<geometry_msgs::msg::PoseStamped> poses);
+
   bool stop_on_failure_;
   ActionStatus current_goal_status_;
   int loop_rate_;
@@ -125,6 +128,7 @@ private:
 
   //启动的节点
   rclcpp::Node::SharedPtr client_node_;
+  // std::vector<geometry_msgs::msg::PoseStamped> poses;
 
   // std::condition_variable m_conVar;
   // std::mutex m_mtx; // 互斥锁
