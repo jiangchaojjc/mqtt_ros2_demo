@@ -322,20 +322,20 @@ void Ros2MqttBridge::getBrokerMsg(
     if (navi_stop_trig) {
       RCLCPP_INFO(this->get_logger(), "navi_stop_trig_goal_stop");
 
-      // auto cancel_nav2_goal =
-      //     nav_to_pose_client_->async_cancel_goal(navigation_goal_handle_);
-      // if (rclcpp::spin_until_future_complete(client_node_, cancel_nav2_goal,
-      //                                        server_timeout_) !=
-      //     rclcpp::FutureReturnCode::SUCCESS) {
-      //   RCLCPP_ERROR(client_node_->get_logger(),
-      //                "Failed to cancel back charge");
-      //   return;
-      // }
+      auto cancel_nav2_goal =
+          nav_to_pose_client_->async_cancel_goal(navigation_goal_handle_);
+      if (rclcpp::spin_until_future_complete(client_node_, cancel_nav2_goal,
+                                             server_timeout_) !=
+          rclcpp::FutureReturnCode::SUCCESS) {
+        RCLCPP_ERROR(client_node_->get_logger(),
+                     "Failed to cancel back charge");
+        return;
+      }
 
-      auto cancel_future = nav_to_pose_client_->async_cancel_all_goals();
-      rclcpp::spin_until_future_complete(client_node_, cancel_future);
-      // for result callback processing
-      spin_some(client_node_);
+      // auto cancel_future = nav_to_pose_client_->async_cancel_all_goals();
+      // rclcpp::spin_until_future_complete(client_node_, cancel_future);
+      // // for result callback processing
+      // spin_some(client_node_);
     }
     break;
   }
@@ -398,31 +398,67 @@ void Ros2MqttBridge::getBrokerMsg(
   case 7: {
 
     RCLCPP_INFO(this->get_logger(), "followWaypoints stop start...");
+
+    // bool followwaypoints_stop_trig =
+    //     root["FollowWaypoints_Stop"]
+    //         .asBool(); //
+    //         mqtt发送过来取消的消息就直接取消，不需要再发送action的消息类型
+    // if (!followWaypoints_client_->wait_for_action_server(
+    //         std::chrono::seconds(5))) {
+    //   RCLCPP_ERROR(this->get_logger(),
+    //                "Action server not available after waiting");
+    //   rclcpp::shutdown();
+    // }
+    // // promiseSignal.set_value();
+    // // std::future<void> future_call(promiseSignal.get_future());
+
+    // if (followwaypoints_stop_trig) {
+    //   RCLCPP_INFO(this->get_logger(), "followwaypoints_stop_trig...");
+
+    //   auto cancel_followwaypoints =
+    //   followWaypoints_client_->async_cancel_goal(
+    //       followWaypoints_goal_handle_);
+    //   if (rclcpp::spin_until_future_complete(
+    //           client_node_, cancel_followwaypoints, server_timeout_) !=
+    //       rclcpp::FutureReturnCode::SUCCESS) {
+    //     RCLCPP_ERROR(client_node_->get_logger(),
+    //                  "Failed to cancel back charge");
+    //     return;
+    //   }
+    // }
+
     bool followwaypoints_stop_trig =
         root["FollowWaypoints_Stop"]
             .asBool(); // mqtt发送过来取消的消息就直接取消，不需要再发送action的消息类型
-    if (!followWaypoints_client_->wait_for_action_server(
-            std::chrono::seconds(5))) {
+    if (!nav_to_pose_client_->wait_for_action_server(std::chrono::seconds(5))) {
       RCLCPP_ERROR(this->get_logger(),
                    "Action server not available after waiting");
       rclcpp::shutdown();
     }
-    // promiseSignal.set_value();
-    // std::future<void> future_call(promiseSignal.get_future());
+
+    // auto back_trig = ChargeBackActionInterface::Goal();
+    // back_trig.back_charge = true;
 
     if (followwaypoints_stop_trig) {
-      RCLCPP_INFO(this->get_logger(), "followwaypoints_stop_trig...");
+      RCLCPP_INFO(this->get_logger(), "followwaypoints_stop_trig");
 
-      auto cancel_followwaypoints = followWaypoints_client_->async_cancel_goal(
-          followWaypoints_goal_handle_);
-      if (rclcpp::spin_until_future_complete(
-              client_node_, cancel_followwaypoints, server_timeout_) !=
-          rclcpp::FutureReturnCode::SUCCESS) {
-        RCLCPP_ERROR(client_node_->get_logger(),
-                     "Failed to cancel back charge");
-        return;
-      }
+      // auto cancel_nav2_goal =
+      //     nav_to_pose_client_->async_cancel_goal(navigation_goal_handle_);
+      // if (rclcpp::spin_until_future_complete(client_node_, cancel_nav2_goal,
+      //                                        server_timeout_) !=
+      //     rclcpp::FutureReturnCode::SUCCESS) {
+      //   RCLCPP_ERROR(client_node_->get_logger(),
+      //                "Failed to cancel back charge");
+      //   return;
+      // }
+
+      //参考followWaypoints.cpp
+      auto cancel_future = nav_to_pose_client_->async_cancel_all_goals();
+      rclcpp::spin_until_future_complete(client_node_, cancel_future);
+      // for result callback processing
+      spin_some(client_node_);
     }
+
     break;
   }
 
